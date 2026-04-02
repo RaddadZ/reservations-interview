@@ -16,6 +16,7 @@ export async function checkAuth(): Promise<boolean> {
     return true;
   } catch (err) {
     if (err instanceof HTTPError && err.response.status === 401) {
+      try { await logout(); } catch { /* already unauthenticated */ }
       return false;
     }
     throw err;

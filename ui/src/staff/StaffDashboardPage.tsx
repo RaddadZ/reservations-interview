@@ -12,7 +12,7 @@ import {
   Table,
   Text,
 } from "@radix-ui/themes";
-import { checkAuth, logout } from "./api";
+import { useAuth } from "./AuthContext";
 import {
   useGetUpcomingReservations,
   useGetRooms,
@@ -28,6 +28,7 @@ const PAGE_SIZE = 5;
 export function StaffDashboardPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { isAuthed } = useAuth();
   const [page, setPage] = useState(1);
   const [todayOnly, setTodayOnly] = useState(false);
   const { data, isLoading, isError } = useGetUpcomingReservations(
@@ -44,21 +45,10 @@ export function StaffDashboardPage() {
   const [roomPage, setRoomPage] = useState(1);
 
   useEffect(() => {
-    checkAuth().then((authed) => {
-      if (!authed) {
-        router.navigate({ to: "/staff/login" });
-      }
-    });
-  }, [router]);
-
-  async function handleLogout() {
-    try {
-      await logout();
-    } catch {
-      // sign-out failures are non-critical, still navigate away
+    if (isAuthed === false) {
+      router.navigate({ to: "/staff/login" });
     }
-    router.navigate({ to: "/" });
-  }
+  }, [isAuthed, router]);
 
   const items = data?.items ?? [];
   const totalCount = data?.totalCount ?? 0;
@@ -76,22 +66,17 @@ export function StaffDashboardPage() {
         <Heading size="8" color="mint">
           {todayOnly ? "Today's Reservations" : "Upcoming Reservations"}
         </Heading>
-        <Flex gap="2">
-          <Button
-            size="2"
-            variant={todayOnly ? "solid" : "soft"}
-            color="mint"
-            onClick={() => {
-              setTodayOnly((v) => !v);
-              setPage(1);
-            }}
-          >
-            {todayOnly ? "Show All" : "Today Only"}
-          </Button>
-          <Button variant="soft" color="red" size="2" onClick={handleLogout}>
-            Logout
-          </Button>
-        </Flex>
+        <Button
+          size="2"
+          variant={todayOnly ? "solid" : "soft"}
+          color="mint"
+          onClick={() => {
+            setTodayOnly((v) => !v);
+            setPage(1);
+          }}
+        >
+          {todayOnly ? "Show All" : "Today Only"}
+        </Button>
       </Flex>
       <Separator color="mint" size="4" mb="5" />
 

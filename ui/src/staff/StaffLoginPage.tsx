@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "@tanstack/react-router";
 import {
   Box,
@@ -9,7 +9,7 @@ import {
   Separator,
   TextField,
 } from "@radix-ui/themes";
-import { login } from "./api";
+import { useAuth } from "./AuthContext";
 import { showErrorToast } from "../utils/toasts";
 import { HTTPError } from "ky";
 import styled from "styled-components";
@@ -21,8 +21,15 @@ const DimSlot = styled(TextField.Slot)`
 
 export function StaffLoginPage() {
   const router = useRouter();
+  const { isAuthed, login } = useAuth();
   const [accessCode, setAccessCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (isAuthed === true) {
+      router.navigate({ to: "/staff" });
+    }
+  }, [isAuthed, router]);
 
   async function handleSubmit(evt: React.FormEvent) {
     evt.preventDefault();
