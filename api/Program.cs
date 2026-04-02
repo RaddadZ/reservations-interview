@@ -1,5 +1,6 @@
 using System.Data;
 using Db;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Data.Sqlite;
 using Repositories;
 
@@ -22,6 +23,29 @@ var builder = WebApplication.CreateBuilder(args);
         opt.EnableEndpointRouting = false;
     });
     Services.AddCors();
+    Services
+        .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+        .AddCookie(options =>
+        {
+            options.Cookie.HttpOnly = true;
+            options.Cookie.SameSite = SameSiteMode.Strict;
+            options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+                ? CookieSecurePolicy.None
+                : CookieSecurePolicy.Always;
+            options.SlidingExpiration = true;
+            options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+            options.Events.OnRedirectToLogin = context =>
+            {
+                context.Response.StatusCode = 401;
+                return Task.CompletedTask;
+            };
+            options.Events.OnRedirectToAccessDenied = context =>
+            {
+                context.Response.StatusCode = 403;
+                return Task.CompletedTask;
+            };
+        });
+    Services.AddAuthorization();
     Services.AddEndpointsApiExplorer();
     Services.AddSwaggerGen();
 }
@@ -61,6 +85,9 @@ var app = builder.Build();
         );
     }
     
+    app.UseAuthentication();
+    app.UseAuthorization();
+
     app
         .UseMvc()
         .UseSwagger()

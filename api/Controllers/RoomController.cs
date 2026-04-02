@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Models;
 using Models.Errors;
@@ -17,6 +18,7 @@ namespace Controllers
         }
 
         [HttpGet, Produces("application/json"), Route("")]
+        [AllowAnonymous]
         public async Task<ActionResult<Room>> GetRooms()
         {
             var rooms = await _repo.GetRooms();
@@ -30,6 +32,7 @@ namespace Controllers
         }
 
         [HttpGet, Produces("application/json"), Route("{roomNumber}")]
+        [AllowAnonymous]
         public async Task<ActionResult<Room>> GetRoom(string roomNumber)
         {
             if (roomNumber.Length != 3)
@@ -50,6 +53,7 @@ namespace Controllers
         }
 
         [HttpPost, Produces("application/json"), Route("")]
+        [Authorize]
         public async Task<ActionResult<Room>> CreateRoom([FromBody] Room newRoom)
         {
             var errors = newRoom.Validate();
@@ -69,6 +73,7 @@ namespace Controllers
         }
 
         [HttpDelete, Produces("application/json"), Route("{roomNumber}")]
+        [Authorize]
         public async Task<IActionResult> DeleteRoom(string roomNumber)
         {
             if (roomNumber.Length != 3)

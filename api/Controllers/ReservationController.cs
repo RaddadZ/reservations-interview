@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Models;
 using Models.Errors;
@@ -25,6 +26,7 @@ namespace Controllers
         }
 
         [HttpGet, Produces("application/json"), Route("")]
+        [Authorize]
         public async Task<ActionResult<Reservation>> GetReservations()
         {
             var reservations = await _repo.GetReservations();
@@ -33,6 +35,7 @@ namespace Controllers
         }
 
         [HttpGet, Produces("application/json"), Route("{reservationId}")]
+        [AllowAnonymous]
         public async Task<ActionResult<Reservation>> GetRoom(Guid reservationId)
         {
             try
@@ -52,6 +55,7 @@ namespace Controllers
         /// <param name="newBooking"></param>
         /// <returns></returns>
         [HttpPost, Produces("application/json"), Route("")]
+        [AllowAnonymous]
         public async Task<ActionResult<Reservation>> BookReservation(
             [FromBody] Reservation newBooking
         )
@@ -107,6 +111,7 @@ namespace Controllers
         }
 
         [HttpDelete, Produces("application/json"), Route("{reservationId}")]
+        [Authorize]
         public async Task<IActionResult> DeleteReservation(Guid reservationId)
         {
             var result = await _repo.DeleteReservation(reservationId);
