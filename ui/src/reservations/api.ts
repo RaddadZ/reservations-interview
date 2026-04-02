@@ -37,7 +37,10 @@ export async function bookRoom(booking: NewReservation): Promise<Reservation> {
 const RoomSchema = z.object({
   number: z.string(),
   state: z.number(),
+  isDirty: z.boolean(),
 });
+
+export type Room = z.infer<typeof RoomSchema>;
 
 const RoomListSchema = RoomSchema.array();
 
@@ -118,4 +121,14 @@ export async function confirmCheckIn(
   await ky.put(`/api/reservation/${reservationId}/checkin`, {
     json: { code },
   });
+}
+
+export async function updateRoomDirtyState(
+  roomNumber: string,
+  isDirty: boolean,
+): Promise<Room> {
+  const response = await ky.patch(`/api/room/${roomNumber}`, {
+    json: [{ op: "replace", path: "/isDirty", value: isDirty }],
+  });
+  return RoomSchema.parse(await response.json());
 }

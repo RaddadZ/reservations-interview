@@ -16,12 +16,21 @@ namespace Models
         /// Whether the room is available for reservation
         /// </summary>
         public State State { get; set; } = State.Ready;
+
+        /// <summary>
+        /// Whether the room needs cleaning
+        /// </summary>
+        public bool IsDirty { get; set; } = false;
     }
 
     public enum State
     {
         Ready = 0,
-        Occupied = 1,
-        Dirty = 2
+        Occupied = 1
+    }
+
+    public class RoomPatch
+    {
+        public bool? IsDirty { get; set; }
     }
 }

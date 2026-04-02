@@ -15,9 +15,12 @@ import {
 import { checkAuth, logout } from "./api";
 import {
   useGetUpcomingReservations,
+  useGetRooms,
+  updateRoomDirtyState,
   type ReservationDetail,
 } from "../reservations/api";
 import { CheckInDialog } from "../components/CheckInDialog";
+import { handleApiError, showSuccessToast } from "../utils/toasts";
 
 const PAGE_SIZE = 20;
 
@@ -31,6 +34,7 @@ export function StaffDashboardPage() {
     PAGE_SIZE,
     todayOnly,
   );
+  const { data: rooms, isLoading: roomsLoading } = useGetRooms();
 
   const [checkInTarget, setCheckInTarget] = useState<ReservationDetail | null>(
     null,
@@ -190,8 +194,85 @@ export function StaffDashboardPage() {
         onConfirmed={() => {
           setCheckInTarget(null);
           queryClient.invalidateQueries({ queryKey: ["reservations"] });
+          queryClient.invalidateQueries({ queryKey: ["rooms"] });
         }}
       />
+
+      <Heading size="6" color="mint" mt="7" mb="2">
+        Housekeeping
+      </Heading>
+      <Separator color="mint" size="4" mb="5" />
+
+      {roomsLoading && (
+        <Text color="gray" size="3">
+          Loading rooms...
+        </Text>
+      )}
+
+      {rooms && rooms.length > 0 && (
+        <Box style={{ overflowX: "auto" }}>
+          <Table.Root variant="surface">
+            <Table.Header>
+              <Table.Row>
+                <Table.ColumnHeaderCell>Room</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>Occupancy</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>Cleanliness</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>Actions</Table.ColumnHeaderCell>
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
+              {rooms.map((room) => (
+                <Table.Row key={room.number}>
+                  <Table.Cell>
+                    <Text weight="bold">#{room.number}</Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    {room.state === 1 ? (
+                      <Badge color="orange">Occupied</Badge>
+                    ) : (
+                      <Badge color="green">Ready</Badge>
+                    )}
+                  </Table.Cell>
+                  <Table.Cell>
+                    {room.isDirty ? (
+                      <Badge color="red">Dirty</Badge>
+                    ) : (
+                      <Badge color="green">Clean</Badge>
+                    )}
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Button
+                      size="1"
+                      variant="soft"
+                      color={room.isDirty ? "green" : "red"}
+                      onClick={async () => {
+                        try {
+                          await updateRoomDirtyState(
+                            room.number,
+                            !room.isDirty,
+                          );
+                          showSuccessToast(
+                            `Room #${room.number} marked as ${
+                              room.isDirty ? "clean" : "dirty"
+                            }.`,
+                          );
+                          queryClient.invalidateQueries({
+                            queryKey: ["rooms"],
+                          });
+                        } catch (err) {
+                          await handleApiError(err, "Failed to update room status.");
+                        }
+                      }}
+                    >
+                      {room.isDirty ? "Mark Clean" : "Mark Dirty"}
+                    </Button>
+                  </Table.Cell>
+                </Table.Row>
+              ))}
+            </Table.Body>
+          </Table.Root>
+        </Box>
+      )}
     </Section>
   );
 }

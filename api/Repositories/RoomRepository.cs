@@ -53,11 +53,23 @@ namespace Repositories
         public async Task<Room> CreateRoom(Room newRoom)
         {
             var createdRoom = await _db.QuerySingleAsync<RoomDb>(
-                "INSERT INTO Rooms(Number, State) Values(@Number, @State) RETURNING *",
+                "INSERT INTO Rooms(Number, State, IsDirty) Values(@Number, @State, @IsDirty) RETURNING *",
                 new RoomDb(newRoom)
             );
 
             return createdRoom.ToDomain();
+        }
+
+        public async Task<bool> SetRoomDirtyState(string roomNumber, bool isDirty)
+        {
+            var roomNumberInt = RoomExtensions.ConvertRoomNumberToInt(roomNumber);
+
+            var updated = await _db.ExecuteAsync(
+                "UPDATE Rooms SET IsDirty = @isDirty WHERE Number = @roomNumberInt;",
+                new { isDirty, roomNumberInt }
+            );
+
+            return updated > 0;
         }
 
         public async Task<bool> UpdateRoomState(string roomNumber, State state)
@@ -97,17 +109,20 @@ namespace Repositories
             /// </summary>
             public State State { get; set; } = State.Ready;
 
+            public bool IsDirty { get; set; } = false;
+
             public RoomDb() { }
 
             public RoomDb(Room room)
             {
                 Number = RoomExtensions.ConvertRoomNumberToInt(room.Number);
                 State = room.State;
+                IsDirty = room.IsDirty;
             }
 
             public Room ToDomain()
             {
-                return new Room { Number = RoomExtensions.FormatRoomNumber(Number), State = State };
+                return new Room { Number = RoomExtensions.FormatRoomNumber(Number), State = State, IsDirty = IsDirty };
             }
         }
     }

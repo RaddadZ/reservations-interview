@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Models;
 using Models.Errors;
@@ -70,6 +71,57 @@ namespace Controllers
             }
 
             return Json(createdRoom);
+        }
+
+        private static readonly HashSet<string> AllowedPatchPaths =
+            new(StringComparer.OrdinalIgnoreCase) { $"/{nameof(RoomPatch.IsDirty)}" };
+
+        [HttpPatch, Produces("application/json"), Route("{roomNumber}")]
+        [Authorize]
+        public async Task<IActionResult> PatchRoom(
+            string roomNumber, [FromBody] JsonPatchDocument<RoomPatch> patchDoc)
+        {
+            if (roomNumber.Length != 3)
+            {
+                return BadRequest(new { errors = new[] { "Invalid room ID - format is ###, ex 001 / 002 / 101" } });
+            }
+
+            // Reject operations on paths we don't support
+            var disallowed = patchDoc.Operations
+                .Where(op => !AllowedPatchPaths.Contains(op.path))
+                .Select(op => op.path)
+                .Distinct()
+                .ToList();
+
+            if (disallowed.Count > 0)
+            {
+                return BadRequest(new { errors = disallowed.Select(p => $"Patching '{p}' is not allowed.").ToArray() });
+            }
+
+            Room room;
+            try
+            {
+                room = await _repo.GetRoom(roomNumber);
+            }
+            catch (NotFoundException)
+            {
+                return NotFound();
+            }
+
+            var patchModel = new RoomPatch();
+
+            patchDoc.ApplyTo(patchModel, ModelState);
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new { errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToArray() });
+            }
+
+            if (patchModel.IsDirty != null)
+            {
+                await _repo.SetRoomDirtyState(roomNumber, patchModel.IsDirty.Value);
+            }
+            var updated = await _repo.GetRoom(roomNumber);
+            return Ok(updated);
         }
 
         [HttpDelete, Produces("application/json"), Route("{roomNumber}")]

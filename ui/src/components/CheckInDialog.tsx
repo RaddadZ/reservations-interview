@@ -12,7 +12,7 @@ import {
   confirmCheckIn,
   type ReservationDetail,
 } from "../reservations/api";
-import { showErrorToast, showSuccessToast } from "../utils/toasts";
+import { handleApiError, showErrorToast, showSuccessToast } from "../utils/toasts";
 
 interface CheckInDialogProps {
   reservation: ReservationDetail | null;
@@ -38,8 +38,8 @@ export function CheckInDialog({
 
     initiateCheckIn(reservation.id)
       .then(setGeneratedCode)
-      .catch(() => {
-        showErrorToast("Failed to initiate check-in.");
+      .catch(async (err) => {
+        await handleApiError(err, "Failed to initiate check-in.");
         onClose();
       })
       .finally(() => setLoading(false));

@@ -144,6 +144,20 @@ namespace Controllers
                 return BadRequest(new { errors = new[] { "Check-in is only allowed on the reservation start date." } });
             }
 
+            // Block check-in if room is dirty
+            try
+            {
+                var room = await _roomRepo.GetRoom(reservation.RoomNumber);
+                if (room.IsDirty)
+                {
+                    return BadRequest(new { errors = new[] { "Room must be cleaned before check-in." } });
+                }
+            }
+            catch (NotFoundException)
+            {
+                return BadRequest(new { errors = new[] { $"Room {reservation.RoomNumber} does not exist." } });
+            }
+
             if (_verificationCodeService.HasActiveCode(reservationId))
             {
                 return Conflict(new { errors = new[] { "A verification code is already active for this reservation. Please wait for it to expire before requesting a new one." } });

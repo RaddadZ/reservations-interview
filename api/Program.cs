@@ -23,7 +23,7 @@ var builder = WebApplication.CreateBuilder(args);
     Services.AddMvc(opt =>
     {
         opt.EnableEndpointRouting = false;
-    });
+    }).AddNewtonsoftJson();
     Services.AddCors();
     Services
         .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

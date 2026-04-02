@@ -112,7 +112,7 @@ namespace Repositories
         }
 
         /// <summary>
-        /// Atomically sets CheckedIn = 1 and room State = Occupied inside a transaction.
+        /// Atomically sets CheckedIn = 1, room State = Occupied, and IsDirty = 1 inside a transaction.
         /// The UPDATE uses WHERE CheckedIn = 0 as a guard against concurrent check-ins.
         /// Returns false if the reservation was already checked in (no rows updated).
         /// </summary>
@@ -141,7 +141,7 @@ namespace Repositories
             );
 
             await _db.ExecuteAsync(
-                "UPDATE Rooms SET State = @state WHERE Number = @roomNumber;",
+                "UPDATE Rooms SET State = @state, IsDirty = 1 WHERE Number = @roomNumber;",
                 new { state = (int)State.Occupied, roomNumber },
                 transaction: txn
             );
