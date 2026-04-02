@@ -9,7 +9,7 @@ namespace Db
         /// <summary>
         /// Ensures the DB is available and the requried tables are made
         /// </summary>
-        public static async void EnsureDb(IServiceScope scope)
+        public static async Task EnsureDb(IServiceScope scope)
         {
             using var db = scope.ServiceProvider.GetRequiredService<SqliteConnection>();
 

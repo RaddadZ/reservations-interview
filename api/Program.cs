@@ -12,11 +12,11 @@ var builder = WebApplication.CreateBuilder(args);
         builder.Configuration.GetConnectionString("ReservationsDb")
         ?? "Data Source=reservations.db;Cache=Shared";
 
-    Services.AddSingleton(_ => new SqliteConnection(connectionString));
-    Services.AddSingleton<IDbConnection>(sp => sp.GetRequiredService<SqliteConnection>());
-    Services.AddSingleton<GuestRepository>();
-    Services.AddSingleton<RoomRepository>();
-    Services.AddSingleton<ReservationRepository>();
+    Services.AddScoped(_ => new SqliteConnection(connectionString));
+    Services.AddScoped<IDbConnection>(sp => sp.GetRequiredService<SqliteConnection>());
+    Services.AddScoped<GuestRepository>();
+    Services.AddScoped<RoomRepository>();
+    Services.AddScoped<ReservationRepository>();
     Services.AddMvc(opt =>
     {
         opt.EnableEndpointRouting = false;
@@ -32,7 +32,8 @@ var app = builder.Build();
 {
     try
     {
-        Setup.EnsureDb(app.Services.CreateScope());
+        using var scope = app.Services.CreateScope();
+        await Setup.EnsureDb(scope);
     }
     catch (Exception ex)
     {
@@ -42,9 +43,26 @@ var app = builder.Build();
         return;
     }
 
-    app.UsePathBase("/api")
+    app.UsePathBase("/api");
+
+    app.UseCors(p => p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+
+    if (!app.Environment.IsDevelopment())
+    {
+        app.UseExceptionHandler(err =>
+            err.Run(async context =>
+            {
+                context.Response.StatusCode = 500;
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsJsonAsync(
+                    new { errors = new[] { "An unexpected error occurred." } }
+                );
+            })
+        );
+    }
+    
+    app
         .UseMvc()
-        .UseCors(p => p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader())
         .UseSwagger()
         .UseSwaggerUI();
 }
