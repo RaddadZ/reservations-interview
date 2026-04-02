@@ -27,11 +27,16 @@ namespace Controllers
 
         [HttpGet, Produces("application/json"), Route("")]
         [Authorize]
-        public async Task<ActionResult<Reservation>> GetReservations()
+        public async Task<IActionResult> GetReservations(
+            [FromQuery] DateTime? from, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
-            var reservations = await _repo.GetReservations();
+            var (items, totalCount) = await _repo.GetReservations(from, page, pageSize);
 
-            return Json(reservations);
+            Response.Headers["X-Total-Count"] = totalCount.ToString();
+            Response.Headers["X-Page"] = page.ToString();
+            Response.Headers["X-Page-Size"] = pageSize.ToString();
+
+            return Json(items);
         }
 
         [HttpGet, Produces("application/json"), Route("{reservationId}")]

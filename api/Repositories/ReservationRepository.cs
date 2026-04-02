@@ -15,16 +15,31 @@ namespace Repositories
             _db = db;
         }
 
-        public async Task<IEnumerable<Reservation>> GetReservations()
+        /// <summary>
+        /// Returns reservations with optional date filter and offset-based pagination.
+        /// When <paramref name="from"/> is provided, only reservations whose End &gt;= from are returned, ordered by Start ASC.
+        /// </summary>
+        public async Task<(IEnumerable<Reservation> Items, int TotalCount)> GetReservations(
+            DateTime? from = null, int page = 1, int pageSize = 20)
         {
-            var reservations = await _db.QueryAsync<ReservationDb>("SELECT * FROM Reservations");
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 100);
 
-            if (reservations == null)
-            {
-                return [];
-            }
+            var whereClause = from.HasValue ? "WHERE [End] >= @from" : "";
+            var orderClause = from.HasValue ? "ORDER BY [Start] ASC" : "";
+            var offset = (page - 1) * pageSize;
 
-            return reservations.Select(r => r.ToDomain());
+            var totalCount = await _db.ExecuteScalarAsync<int>(
+                $"SELECT COUNT(*) FROM Reservations {whereClause}",
+                new { from }
+            );
+
+            var reservations = await _db.QueryAsync<ReservationDb>(
+                $"SELECT * FROM Reservations {whereClause} {orderClause} LIMIT @pageSize OFFSET @offset",
+                new { from, pageSize, offset }
+            );
+
+            return (reservations?.Select(r => r.ToDomain()) ?? [], totalCount);
         }
 
         /// <summary>

@@ -47,3 +47,52 @@ export function useGetRooms() {
     queryFn: () => ky.get("/api/room").json().then(RoomListSchema.parseAsync),
   });
 }
+
+const ReservationDetailSchema = z.object({
+  id: z.string(),
+  roomNumber: z.string(),
+  guestEmail: z.string(),
+  start: z.string(),
+  end: z.string(),
+  checkedIn: z.boolean(),
+  checkedOut: z.boolean(),
+});
+
+export type ReservationDetail = z.infer<typeof ReservationDetailSchema>;
+
+const ReservationListSchema = ReservationDetailSchema.array();
+
+export interface PaginatedReservations {
+  items: ReservationDetail[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+function toLocalDateStr(date: Date): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+export function useGetUpcomingReservations(page = 1, pageSize = 20) {
+  const from = toLocalDateStr(new Date());
+
+  return useQuery({
+    queryKey: ["reservations", "upcoming", from, page, pageSize],
+    queryFn: async (): Promise<PaginatedReservations> => {
+      const response = await ky.get("/api/reservation", {
+        searchParams: { from, page, pageSize },
+      });
+      const items = ReservationListSchema.parse(await response.json());
+      return {
+        items,
+        totalCount: Number(response.headers.get("X-Total-Count") ?? "0"),
+        page: Number(response.headers.get("X-Page") ?? "1"),
+        pageSize: Number(response.headers.get("X-Page-Size") ?? "20"),
+      };
+    },
+    retry: false,
+  });
+}

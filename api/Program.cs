@@ -69,7 +69,8 @@ var app = builder.Build();
 
     app.UsePathBase("/api");
 
-    app.UseCors(p => p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+    app.UseCors(p => p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()
+        .WithExposedHeaders("X-Total-Count", "X-Page", "X-Page-Size"));
 
     if (!app.Environment.IsDevelopment())
     {

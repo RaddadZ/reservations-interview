@@ -54,6 +54,13 @@ namespace Db
               );
             "
             );
+
+            await db.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Reservations_End ON Reservations([End]);"
+            );
+            await db.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Reservations_RoomNumber_Start_End ON Reservations(RoomNumber, [Start], [End]);"
+            );
         }
     }
 }
