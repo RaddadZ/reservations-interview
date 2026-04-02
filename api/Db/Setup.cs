@@ -22,7 +22,8 @@ namespace Db
                 $@"
               CREATE TABLE IF NOT EXISTS Guests (
                 {nameof(Guest.Email)} TEXT PRIMARY KEY NOT NULL,
-                {nameof(Guest.Name)} TEXT NOT NULL
+                {nameof(Guest.Name)} TEXT NOT NULL,
+                {nameof(Guest.Surname)} TEXT
               );
             "
             );
@@ -42,8 +43,8 @@ namespace Db
                 {nameof(Reservation.Id)} TEXT PRIMARY KEY NOT NULL,
                 {nameof(Reservation.GuestEmail)} TEXT NOT NULL,
                 {nameof(Reservation.RoomNumber)} INT NOT NULL,
-                {nameof(Reservation.Start)} INT NOT NULL,
-                {nameof(Reservation.End)} INT NOT NULL,
+                {nameof(Reservation.Start)} TEXT NOT NULL,
+                {nameof(Reservation.End)} TEXT NOT NULL,
                 {nameof(Reservation.CheckedIn)} INT NOT NULL DEFAULT FALSE,
                 {nameof(Reservation.CheckedOut)} INT NOT NULL DEFAULT FALSE,
                 FOREIGN KEY ({nameof(Reservation.GuestEmail)})
