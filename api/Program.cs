@@ -4,9 +4,14 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Data.Sqlite;
 using Models;
 using Repositories;
+using Serilog;
 using Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((ctx, config) => config
+    .ReadFrom.Configuration(ctx.Configuration)
+    .WriteTo.Console());
 
 
 {
@@ -65,13 +70,13 @@ var app = builder.Build();
     }
     catch (Exception ex)
     {
-        Console.WriteLine("Failed to setup the database, aborting");
-        Console.WriteLine(ex.ToString());
+        Log.Fatal(ex, "Failed to setup the database, aborting");
         Environment.Exit(1);
         return;
     }
 
     app.UsePathBase("/api");
+    app.UseSerilogRequestLogging();
 
     app.UseCors(p => p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()
         .WithExposedHeaders("X-Total-Count", "X-Page", "X-Page-Size"));
