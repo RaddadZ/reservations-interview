@@ -84,6 +84,48 @@ namespace Repositories
             return updated > 0;
         }
 
+        /// <summary>
+        /// Returns the set of all room numbers currently in the database (as ints) for O(1) duplicate checking.
+        /// </summary>
+        public async Task<HashSet<int>> GetExistingRoomNumbers()
+        {
+            var numbers = await _db.QueryAsync<int>("SELECT Number FROM Rooms;");
+            return new HashSet<int>(numbers);
+        }
+
+        /// <summary>
+        /// Batch-inserts rooms in a single transaction for performance.
+        /// Callers are responsible for pre-filtering duplicates and invalid rooms.
+        /// </summary>
+        public async Task<int> BulkCreateRooms(IEnumerable<Room> rooms, CancellationToken ct = default)
+        {
+            if (_db.State != ConnectionState.Open) _db.Open();
+
+            using var txn = _db.BeginTransaction();
+
+            try
+            {
+                var dbRooms = rooms.Select(r => new RoomDb(r)).ToList();
+                var sql = "INSERT INTO Rooms(Number, State, IsDirty) VALUES(@Number, @State, @IsDirty)";
+
+                var cmd = new CommandDefinition(
+                    sql,
+                    dbRooms,
+                    transaction: txn,
+                    cancellationToken: ct
+                );
+
+                var affected = await _db.ExecuteAsync(cmd);
+                txn.Commit();
+                return affected;
+            }
+            catch
+            {
+                txn.Rollback();
+                throw;
+            }
+        }
+
         public async Task<bool> DeleteRoom(string roomNumber)
         {
             var roomNumberInt = RoomExtensions.ConvertRoomNumberToInt(roomNumber);

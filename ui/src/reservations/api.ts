@@ -123,6 +123,18 @@ export async function confirmCheckIn(
   });
 }
 
+export interface ImportResult {
+  imported: number;
+  errors: { row: number; message: string }[];
+}
+
+export async function importRoomsCsv(file: File): Promise<ImportResult> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await ky.post("/api/room/import", { body: formData });
+  return (await response.json()) as ImportResult;
+}
+
 export async function updateRoomDirtyState(
   roomNumber: string,
   isDirty: boolean,

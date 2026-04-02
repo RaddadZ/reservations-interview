@@ -20,9 +20,10 @@ import {
   type ReservationDetail,
 } from "../reservations/api";
 import { CheckInDialog } from "../components/CheckInDialog";
+import { ImportRoomsDialog } from "../components/ImportRoomsDialog";
 import { handleApiError, showSuccessToast } from "../utils/toasts";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 5;
 
 export function StaffDashboardPage() {
   const router = useRouter();
@@ -39,6 +40,8 @@ export function StaffDashboardPage() {
   const [checkInTarget, setCheckInTarget] = useState<ReservationDetail | null>(
     null,
   );
+  const [importOpen, setImportOpen] = useState(false);
+  const [roomPage, setRoomPage] = useState(1);
 
   useEffect(() => {
     checkAuth().then((authed) => {
@@ -198,10 +201,24 @@ export function StaffDashboardPage() {
         }}
       />
 
-      <Heading size="6" color="mint" mt="7" mb="2">
-        Housekeeping
-      </Heading>
+      <Flex align="center" justify="between" mt="7" mb="2">
+        <Heading size="6" color="mint">
+          Housekeeping
+        </Heading>
+        <Button size="2" variant="soft" color="mint" onClick={() => setImportOpen(true)}>
+          Import Rooms CSV
+        </Button>
+      </Flex>
       <Separator color="mint" size="4" mb="5" />
+
+      <ImportRoomsDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={() => {
+          setRoomPage(1);
+          queryClient.invalidateQueries({ queryKey: ["rooms"] });
+        }}
+      />
 
       {roomsLoading && (
         <Text color="gray" size="3">
@@ -209,7 +226,11 @@ export function StaffDashboardPage() {
         </Text>
       )}
 
-      {rooms && rooms.length > 0 && (
+      {rooms && rooms.length > 0 && (() => {
+        const roomTotalPages = Math.max(1, Math.ceil(rooms.length / PAGE_SIZE));
+        const pagedRooms = rooms.slice((roomPage - 1) * PAGE_SIZE, roomPage * PAGE_SIZE);
+        return (
+        <>
         <Box style={{ overflowX: "auto" }}>
           <Table.Root variant="surface">
             <Table.Header>
@@ -221,7 +242,7 @@ export function StaffDashboardPage() {
               </Table.Row>
             </Table.Header>
             <Table.Body>
-              {rooms.map((room) => (
+              {pagedRooms.map((room) => (
                 <Table.Row key={room.number}>
                   <Table.Cell>
                     <Text weight="bold">#{room.number}</Text>
@@ -272,7 +293,34 @@ export function StaffDashboardPage() {
             </Table.Body>
           </Table.Root>
         </Box>
-      )}
+
+        <Flex align="center" justify="between" mt="4">
+          <Text size="2" color="gray">
+            {rooms.length} room{rooms.length !== 1 ? "s" : ""} — page{" "}
+            {roomPage} of {roomTotalPages}
+          </Text>
+          <Flex gap="2">
+            <Button
+              size="2"
+              variant="soft"
+              disabled={roomPage <= 1}
+              onClick={() => setRoomPage((p) => p - 1)}
+            >
+              Previous
+            </Button>
+            <Button
+              size="2"
+              variant="soft"
+              disabled={roomPage >= roomTotalPages}
+              onClick={() => setRoomPage((p) => p + 1)}
+            >
+              Next
+            </Button>
+          </Flex>
+        </Flex>
+        </>
+        );
+      })()}
     </Section>
   );
 }
