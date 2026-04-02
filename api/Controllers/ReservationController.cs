@@ -94,8 +94,16 @@ namespace Controllers
                 newBooking.Id = Guid.NewGuid();
             }
 
-            var createdReservation = await _repo.CreateReservation(newBooking);
-            return Created($"/reservation/{createdReservation.Id}", createdReservation);
+            // Create reservation (overlap check + INSERT are atomic inside a transaction)
+            try
+            {
+                var createdReservation = await _repo.CreateReservation(newBooking);
+                return Created($"/reservation/{createdReservation.Id}", createdReservation);
+            }
+            catch (ValidationException ex)
+            {
+                return Conflict(new { errors = ex.Errors });
+            }
         }
 
         [HttpDelete, Produces("application/json"), Route("{reservationId}")]

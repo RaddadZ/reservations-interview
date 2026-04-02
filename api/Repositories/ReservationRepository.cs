@@ -48,16 +48,48 @@ namespace Repositories
             return reservation.ToDomain();
         }
 
+        /// <summary>
+        /// Atomically checks for overlapping reservations and inserts a new one inside a transaction.
+        /// Throws <see cref="ValidationException"/> if the room is already booked for the selected dates.
+        /// Uses strict inequality so same-day checkout/checkin is allowed.
+        /// </summary>
         public async Task<Reservation> CreateReservation(Reservation newReservation)
         {
+            if (_db.State != ConnectionState.Open) _db.Open();
+            using var txn = _db.BeginTransaction();
+
             var dbModel = new ReservationDb(newReservation);
+
+            // Check for overlap inside the transaction
+            var hasOverlap = await _db.ExecuteScalarAsync<bool>(
+                @"SELECT EXISTS(
+                    SELECT 1 FROM Reservations
+                    WHERE RoomNumber = @RoomNumber
+                      AND [Start] < @End
+                      AND [End] > @Start
+                    LIMIT 1
+                  )",
+                new { dbModel.RoomNumber, dbModel.Start, dbModel.End },
+                transaction: txn
+            );
+
+            if (hasOverlap)
+            {
+                txn.Rollback();
+                throw new ValidationException(
+                    $"Room {newReservation.RoomNumber} is already booked for the selected dates."
+                );
+            }
+
             var created = await _db.QuerySingleAsync<ReservationDb>(
                 @"INSERT INTO Reservations(Id, GuestEmail, RoomNumber, Start, End, CheckedIn, CheckedOut)
                   VALUES(@Id, @GuestEmail, @RoomNumber, @Start, @End, @CheckedIn, @CheckedOut)
                   RETURNING *",
-                dbModel
+                dbModel,
+                transaction: txn
             );
 
+            txn.Commit();
             return created.ToDomain();
         }
 
