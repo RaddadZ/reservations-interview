@@ -54,8 +54,8 @@ export function CheckInDialog({
         `Checked in reservation for #${reservation.roomNumber}.`,
       );
       onConfirmed();
-    } catch {
-      showErrorToast("Invalid code or check-in failed.");
+    } catch (err) {
+      await handleApiError(err, "Invalid code or check-in failed.");
     } finally {
       setLoading(false);
     }

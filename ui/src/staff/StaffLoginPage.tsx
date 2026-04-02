@@ -10,8 +10,7 @@ import {
   TextField,
 } from "@radix-ui/themes";
 import { useAuth } from "./AuthContext";
-import { showErrorToast } from "../utils/toasts";
-import { HTTPError } from "ky";
+import { handleApiError, showErrorToast } from "../utils/toasts";
 import styled from "styled-components";
 
 const DimSlot = styled(TextField.Slot)`
@@ -43,18 +42,7 @@ export function StaffLoginPage() {
       await login(accessCode);
       router.navigate({ to: "/staff" });
     } catch (err) {
-      if (err instanceof HTTPError) {
-        try {
-          const body = await err.response.json();
-          if (body?.errors && Array.isArray(body.errors)) {
-            body.errors.forEach((msg: string) => showErrorToast(msg));
-            return;
-          }
-        } catch {
-          // response wasn't JSON
-        }
-      }
-      showErrorToast("Login failed. Please try again.");
+      await handleApiError(err, "Login failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
