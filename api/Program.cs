@@ -3,6 +3,7 @@ using Db;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Data.Sqlite;
 using Repositories;
+using Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +19,7 @@ var builder = WebApplication.CreateBuilder(args);
     Services.AddScoped<GuestRepository>();
     Services.AddScoped<RoomRepository>();
     Services.AddScoped<ReservationRepository>();
+    Services.AddSingleton<VerificationCodeService>();
     Services.AddMvc(opt =>
     {
         opt.EnableEndpointRouting = false;

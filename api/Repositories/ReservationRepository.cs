@@ -20,23 +20,26 @@ namespace Repositories
         /// When <paramref name="from"/> is provided, only reservations whose End &gt;= from are returned, ordered by Start ASC.
         /// </summary>
         public async Task<(IEnumerable<Reservation> Items, int TotalCount)> GetReservations(
-            DateTime? from = null, int page = 1, int pageSize = 20)
+            DateTime? from = null, DateTime? to = null, int page = 1, int pageSize = 20)
         {
             page = Math.Max(1, page);
             pageSize = Math.Clamp(pageSize, 1, 100);
 
-            var whereClause = from.HasValue ? "WHERE [End] >= @from" : "";
-            var orderClause = from.HasValue ? "ORDER BY [Start] ASC" : "";
+            var conditions = new List<string>();
+            if (from.HasValue) conditions.Add("[End] >= @from");
+            if (to.HasValue) conditions.Add("[Start] <= @to");
+            var whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
+            var orderClause = from.HasValue || to.HasValue ? "ORDER BY [Start] ASC" : "";
             var offset = (page - 1) * pageSize;
 
             var totalCount = await _db.ExecuteScalarAsync<int>(
                 $"SELECT COUNT(*) FROM Reservations {whereClause}",
-                new { from }
+                new { from, to }
             );
 
             var reservations = await _db.QueryAsync<ReservationDb>(
                 $"SELECT * FROM Reservations {whereClause} {orderClause} LIMIT @pageSize OFFSET @offset",
-                new { from, pageSize, offset }
+                new { from, to, pageSize, offset }
             );
 
             return (reservations?.Select(r => r.ToDomain()) ?? [], totalCount);
@@ -106,6 +109,45 @@ namespace Repositories
 
             txn.Commit();
             return created.ToDomain();
+        }
+
+        /// <summary>
+        /// Atomically sets CheckedIn = 1 and room State = Occupied inside a transaction.
+        /// The UPDATE uses WHERE CheckedIn = 0 as a guard against concurrent check-ins.
+        /// Returns false if the reservation was already checked in (no rows updated).
+        /// </summary>
+        public async Task<bool> CheckIn(Guid reservationId)
+        {
+            if (_db.State != ConnectionState.Open) _db.Open();
+            using var txn = _db.BeginTransaction();
+
+            var updated = await _db.ExecuteAsync(
+                "UPDATE Reservations SET CheckedIn = 1 WHERE Id = @id AND CheckedIn = 0;",
+                new { id = reservationId.ToString() },
+                transaction: txn
+            );
+
+            if (updated == 0)
+            {
+                txn.Rollback();
+                return false;
+            }
+
+            // Get room number to update its state
+            var roomNumber = await _db.ExecuteScalarAsync<int>(
+                "SELECT RoomNumber FROM Reservations WHERE Id = @id;",
+                new { id = reservationId.ToString() },
+                transaction: txn
+            );
+
+            await _db.ExecuteAsync(
+                "UPDATE Rooms SET State = @state WHERE Number = @roomNumber;",
+                new { state = (int)State.Occupied, roomNumber },
+                transaction: txn
+            );
+
+            txn.Commit();
+            return true;
         }
 
         public async Task<bool> DeleteReservation(Guid reservationId)

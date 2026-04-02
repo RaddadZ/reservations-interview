@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Models;
 using Models.Errors;
 using Repositories;
+using Services;
 using Extensions;
 
 namespace Controllers
@@ -13,24 +14,28 @@ namespace Controllers
         private ReservationRepository _repo { get; set; }
         private RoomRepository _roomRepo { get; set; }
         private GuestRepository _guestRepo { get; set; }
+        private VerificationCodeService _verificationCodeService { get; set; }
 
         public ReservationController(
             ReservationRepository reservationRepository,
             RoomRepository roomRepository,
-            GuestRepository guestRepository
+            GuestRepository guestRepository,
+            VerificationCodeService verificationCodeService
         )
         {
             _repo = reservationRepository;
             _roomRepo = roomRepository;
             _guestRepo = guestRepository;
+            _verificationCodeService = verificationCodeService;
         }
 
         [HttpGet, Produces("application/json"), Route("")]
         [Authorize]
         public async Task<IActionResult> GetReservations(
-            [FromQuery] DateTime? from, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+            [FromQuery] DateTime? from, [FromQuery] DateTime? to,
+            [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
-            var (items, totalCount) = await _repo.GetReservations(from, page, pageSize);
+            var (items, totalCount) = await _repo.GetReservations(from, to, page, pageSize);
 
             Response.Headers["X-Total-Count"] = totalCount.ToString();
             Response.Headers["X-Page"] = page.ToString();
@@ -115,6 +120,74 @@ namespace Controllers
             }
         }
 
+        [HttpPost, Produces("application/json"), Route("{reservationId}/checkin")]
+        [Authorize]
+        public async Task<IActionResult> InitiateCheckIn(Guid reservationId)
+        {
+            Reservation reservation;
+            try
+            {
+                reservation = await _repo.GetReservation(reservationId);
+            }
+            catch (NotFoundException)
+            {
+                return NotFound();
+            }
+
+            if (reservation.CheckedIn)
+            {
+                return Conflict(new { errors = new[] { "Reservation is already checked in." } });
+            }
+
+            if (reservation.Start.Date != DateTime.Today)
+            {
+                return BadRequest(new { errors = new[] { "Check-in is only allowed on the reservation start date." } });
+            }
+
+            if (_verificationCodeService.HasActiveCode(reservationId))
+            {
+                return Conflict(new { errors = new[] { "A verification code is already active for this reservation. Please wait for it to expire before requesting a new one." } });
+            }
+
+            var code = _verificationCodeService.GenerateCode(reservationId);
+            return Ok(new { code });
+        }
+
+        [HttpPut, Produces("application/json"), Route("{reservationId}/checkin")]
+        [Authorize]
+        public async Task<IActionResult> ConfirmCheckIn(
+            Guid reservationId, [FromBody] CheckInConfirmRequest request)
+        {
+            Reservation reservation;
+            try
+            {
+                reservation = await _repo.GetReservation(reservationId);
+            }
+            catch (NotFoundException)
+            {
+                return NotFound();
+            }
+
+            if (reservation.CheckedIn)
+            {
+                return Conflict(new { errors = new[] { "Reservation is already checked in." } });
+            }
+
+            if (!_verificationCodeService.ValidateCode(reservationId, request.Code))
+            {
+                return BadRequest(new { errors = new[] { "Invalid verification code." } });
+            }
+
+            var checkedIn = await _repo.CheckIn(reservationId);
+            if (!checkedIn)
+            {
+                return Conflict(new { errors = new[] { "Reservation is already checked in." } });
+            }
+
+            var updated = await _repo.GetReservation(reservationId);
+            return Ok(updated);
+        }
+
         [HttpDelete, Produces("application/json"), Route("{reservationId}")]
         [Authorize]
         public async Task<IActionResult> DeleteReservation(Guid reservationId)
@@ -123,5 +196,10 @@ namespace Controllers
 
             return result ? NoContent() : NotFound();
         }
+    }
+
+    public class CheckInConfirmRequest
+    {
+        public string Code { get; set; } = "";
     }
 }

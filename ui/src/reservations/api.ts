@@ -76,15 +76,19 @@ function toLocalDateStr(date: Date): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-export function useGetUpcomingReservations(page = 1, pageSize = 20) {
+export function useGetUpcomingReservations(
+  page = 1,
+  pageSize = 20,
+  todayOnly = false,
+) {
   const from = toLocalDateStr(new Date());
+  const searchParams: Record<string, string | number> = { from, page, pageSize };
+  if (todayOnly) searchParams.to = from;
 
   return useQuery({
-    queryKey: ["reservations", "upcoming", from, page, pageSize],
+    queryKey: ["reservations", "upcoming", from, page, pageSize, todayOnly],
     queryFn: async (): Promise<PaginatedReservations> => {
-      const response = await ky.get("/api/reservation", {
-        searchParams: { from, page, pageSize },
-      });
+      const response = await ky.get("/api/reservation", { searchParams });
       const items = ReservationListSchema.parse(await response.json());
       return {
         items,
@@ -94,5 +98,24 @@ export function useGetUpcomingReservations(page = 1, pageSize = 20) {
       };
     },
     retry: false,
+  });
+}
+
+const InitiateCheckInResponseSchema = z.object({
+  code: z.string(),
+});
+
+export async function initiateCheckIn(reservationId: string): Promise<string> {
+  const response = await ky.post(`/api/reservation/${reservationId}/checkin`);
+  const data = InitiateCheckInResponseSchema.parse(await response.json());
+  return data.code;
+}
+
+export async function confirmCheckIn(
+  reservationId: string,
+  code: string,
+): Promise<void> {
+  await ky.put(`/api/reservation/${reservationId}/checkin`, {
+    json: { code },
   });
 }

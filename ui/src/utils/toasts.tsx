@@ -33,6 +33,14 @@ export function useShowInfoToast(message: string) {
 }
 
 /** Non-hook version for use in catch blocks / imperative code */
+export function showSuccessToast(message: string) {
+  toast.custom(
+    (t) => <SuccessToast toastId={t} message={message} />,
+    DEFAULT_TOAST_OPTIONS,
+  );
+}
+
+/** Non-hook version for use in catch blocks / imperative code */
 export function showErrorToast(message: string) {
   toast.custom(
     (t) => <ErrorToast toastId={t} message={message} />,

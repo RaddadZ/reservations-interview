@@ -60,6 +60,18 @@ namespace Repositories
             return createdRoom.ToDomain();
         }
 
+        public async Task<bool> UpdateRoomState(string roomNumber, State state)
+        {
+            var roomNumberInt = RoomExtensions.ConvertRoomNumberToInt(roomNumber);
+
+            var updated = await _db.ExecuteAsync(
+                "UPDATE Rooms SET State = @state WHERE Number = @roomNumberInt;",
+                new { state = (int)state, roomNumberInt }
+            );
+
+            return updated > 0;
+        }
+
         public async Task<bool> DeleteRoom(string roomNumber)
         {
             var roomNumberInt = RoomExtensions.ConvertRoomNumberToInt(roomNumber);
