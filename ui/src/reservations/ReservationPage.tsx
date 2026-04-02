@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useShowSuccessToast } from "../utils/toasts";
+import { useShowSuccessToast, showErrorToast } from "../utils/toasts";
 import { Grid, Heading, Section, Dialog } from "@radix-ui/themes";
 import { ReservationCard } from "./ReservationCard";
 import { bookRoom, NewReservation, useGetRooms } from "./api";
 import { LoadingCard } from "../components/LoadingCard";
 import { BookingDetailsModal } from "./BookingDetailsModal";
+import { HTTPError } from "ky";
 
 const RESPONSIVE_GRID_COLS: React.ComponentProps<typeof Grid>["columns"] = {
   sm: "1",
@@ -24,8 +25,25 @@ export function ReservationPage() {
     setSelectedRoomNumber("");
   }
 
-  function onSubmit(booking: NewReservation) {
-    bookRoom(booking).then(onClose).then(showToast);
+  async function onSubmit(booking: NewReservation) {
+    try {
+      await bookRoom(booking);
+      onClose();
+      showToast();
+    } catch (err) {
+      if (err instanceof HTTPError) {
+        try {
+          const body = await err.response.json();
+          if (body?.errors && Array.isArray(body.errors)) {
+            body.errors.forEach((msg: string) => showErrorToast(msg));
+            return;
+          }
+        } catch {
+          // response wasn't JSON — fall through to generic error
+        }
+      }
+      showErrorToast("An unexpected error occurred.");
+    }
   }
 
   const createClickHandler = (roomNumber: string) => () => {

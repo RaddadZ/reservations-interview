@@ -2,6 +2,7 @@ using System.Data;
 using Dapper;
 using Models;
 using Models.Errors;
+using Extensions;
 
 namespace Repositories
 {
@@ -22,7 +23,7 @@ namespace Repositories
         /// <exception cref="NotFoundException"></exception>
         public async Task<Room> GetRoom(string roomNumber)
         {
-            var roomNumberInt = Room.ConvertRoomNumberToInt(roomNumber);
+            var roomNumberInt = RoomExtensions.ConvertRoomNumberToInt(roomNumber);
 
             var room = await _db.QueryFirstOrDefaultAsync<RoomDb>(
                 "SELECT * FROM Rooms WHERE Number = @roomNumberInt;",
@@ -61,7 +62,7 @@ namespace Repositories
 
         public async Task<bool> DeleteRoom(string roomNumber)
         {
-            var roomNumberInt = Room.ConvertRoomNumberToInt(roomNumber);
+            var roomNumberInt = RoomExtensions.ConvertRoomNumberToInt(roomNumber);
 
             var deleted = await _db.ExecuteAsync(
                 "DELETE FROM Rooms WHERE Number = @roomNumberInt;",
@@ -88,13 +89,13 @@ namespace Repositories
 
             public RoomDb(Room room)
             {
-                Number = Room.ConvertRoomNumberToInt(room.Number);
+                Number = RoomExtensions.ConvertRoomNumberToInt(room.Number);
                 State = room.State;
             }
 
             public Room ToDomain()
             {
-                return new Room { Number = Room.FormatRoomNumber(Number), State = State };
+                return new Room { Number = RoomExtensions.FormatRoomNumber(Number), State = State };
             }
         }
     }

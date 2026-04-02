@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Models;
 using Models.Errors;
 using Repositories;
+using Extensions;
 
 namespace Controllers
 {
@@ -9,10 +10,18 @@ namespace Controllers
     public class ReservationController : Controller
     {
         private ReservationRepository _repo { get; set; }
+        private RoomRepository _roomRepo { get; set; }
+        private GuestRepository _guestRepo { get; set; }
 
-        public ReservationController(ReservationRepository reservationRepository)
+        public ReservationController(
+            ReservationRepository reservationRepository,
+            RoomRepository roomRepository,
+            GuestRepository guestRepository
+        )
         {
             _repo = reservationRepository;
+            _roomRepo = roomRepository;
+            _guestRepo = guestRepository;
         }
 
         [HttpGet, Produces("application/json"), Route("")]
@@ -47,24 +56,46 @@ namespace Controllers
             [FromBody] Reservation newBooking
         )
         {
+            // Validate the reservation
+            try
+            {
+                newBooking.Validate();
+            }
+            catch (ValidationException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
+
+            // Verify the room exists
+            try
+            {
+                await _roomRepo.GetRoom(newBooking.RoomNumber);
+            }
+            catch (NotFoundException)
+            {
+                return BadRequest(new { errors = new[] { $"Room {newBooking.RoomNumber} does not exist." } });
+            }
+
+            // Upsert guest by email
+            try
+            {
+                await _guestRepo.GetGuestByEmail(newBooking.GuestEmail);
+            }
+            catch (NotFoundException)
+            {
+                await _guestRepo.CreateGuest(
+                    new Guest { Email = newBooking.GuestEmail, Name = newBooking.GuestEmail }
+                );
+            }
+
             // Provide a real ID if one is not provided
             if (newBooking.Id == Guid.Empty)
             {
                 newBooking.Id = Guid.NewGuid();
             }
 
-            try
-            {
-                var createdReservation = await _repo.CreateReservation(newBooking);
-                return Created($"/reservation/${createdReservation.Id}", createdReservation);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("An error occured when trying to book a reservation:");
-                Console.WriteLine(ex.ToString());
-
-                return BadRequest("Invalid reservation");
-            }
+            var createdReservation = await _repo.CreateReservation(newBooking);
+            return Created($"/reservation/{createdReservation.Id}", createdReservation);
         }
 
         [HttpDelete, Produces("application/json"), Route("{reservationId}")]

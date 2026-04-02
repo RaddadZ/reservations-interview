@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Models;
 using Models.Errors;
 using Repositories;
+using Extensions;
 
 namespace Controllers
 {
@@ -33,7 +34,7 @@ namespace Controllers
         {
             if (roomNumber.Length != 3)
             {
-                return BadRequest("Invalid room ID - format is ###, ex 001 / 002 / 101");
+                return BadRequest(new { errors = new[] { "Invalid room ID - format is ###, ex 001 / 002 / 101" } });
             }
 
             try
@@ -51,6 +52,12 @@ namespace Controllers
         [HttpPost, Produces("application/json"), Route("")]
         public async Task<ActionResult<Room>> CreateRoom([FromBody] Room newRoom)
         {
+            var errors = newRoom.Validate();
+            if (errors.Count > 0)
+            {
+                return BadRequest(new { errors });
+            }
+
             var createdRoom = await _repo.CreateRoom(newRoom);
 
             if (createdRoom == null)
@@ -66,7 +73,7 @@ namespace Controllers
         {
             if (roomNumber.Length != 3)
             {
-                return BadRequest("Invalid room ID - format is ###, ex 001 / 002 / 101");
+                return BadRequest(new { errors = new[] { "Invalid room ID - format is ###, ex 001 / 002 / 101" } });
             }
 
             var deleted = await _repo.DeleteRoom(roomNumber);

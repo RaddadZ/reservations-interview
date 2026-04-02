@@ -2,6 +2,7 @@ using System.Data;
 using Dapper;
 using Models;
 using Models.Errors;
+using Extensions;
 
 namespace Repositories
 {
@@ -41,7 +42,7 @@ namespace Repositories
 
             if (reservation == null)
             {
-                throw new NotFoundException($"Room {reservationId} not found");
+                throw new NotFoundException($"Reservation {reservationId} not found");
             }
 
             return reservation.ToDomain();
@@ -49,10 +50,15 @@ namespace Repositories
 
         public async Task<Reservation> CreateReservation(Reservation newReservation)
         {
-            // TODO Implement
-            return await Task.FromResult(
-                new Reservation { RoomNumber = "000", GuestEmail = "todo" }
+            var dbModel = new ReservationDb(newReservation);
+            var created = await _db.QuerySingleAsync<ReservationDb>(
+                @"INSERT INTO Reservations(Id, GuestEmail, RoomNumber, Start, End, CheckedIn, CheckedOut)
+                  VALUES(@Id, @GuestEmail, @RoomNumber, @Start, @End, @CheckedIn, @CheckedOut)
+                  RETURNING *",
+                dbModel
             );
+
+            return created.ToDomain();
         }
 
         public async Task<bool> DeleteReservation(Guid reservationId)
@@ -87,7 +93,7 @@ namespace Repositories
             public ReservationDb(Reservation reservation)
             {
                 Id = reservation.Id.ToString();
-                RoomNumber = Room.ConvertRoomNumberToInt(reservation.RoomNumber);
+                RoomNumber = RoomExtensions.ConvertRoomNumberToInt(reservation.RoomNumber);
                 GuestEmail = reservation.GuestEmail;
                 Start = reservation.Start;
                 End = reservation.End;
@@ -100,7 +106,7 @@ namespace Repositories
                 return new Reservation
                 {
                     Id = Guid.Parse(Id),
-                    RoomNumber = Room.FormatRoomNumber(RoomNumber),
+                    RoomNumber = RoomExtensions.FormatRoomNumber(RoomNumber),
                     GuestEmail = GuestEmail,
                     Start = Start,
                     End = End,

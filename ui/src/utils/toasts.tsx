@@ -1,5 +1,6 @@
 import { SuccessToast } from "../components/SuccessToast";
 import { InfoToast } from "../components/InfoToast";
+import { ErrorToast } from "../components/ErrorToast";
 import { ExternalToast, toast } from "sonner";
 import { useCallback } from "react";
 
@@ -28,5 +29,13 @@ export function useShowInfoToast(message: string) {
         DEFAULT_TOAST_OPTIONS,
       ),
     [message],
+  );
+}
+
+/** Non-hook version for use in catch blocks / imperative code */
+export function showErrorToast(message: string) {
+  toast.custom(
+    (t) => <ErrorToast toastId={t} message={message} />,
+    DEFAULT_TOAST_OPTIONS,
   );
 }
